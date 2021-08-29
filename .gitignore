@@ -1,0 +1,27 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+/.vs
+hpr/*.vs
+hpr/*.vscode
+hpr/*.exe
+hpr/*.sdf
+hpr/*.opensdf
+hpr/*.zip
+hpr/*.suo
+hpr/*.ncb
+hpr/*.vcproj.*
+hpr/*.pkg
+hpr/*.dmg
+hpr/*.depend
+hpr/*.layout
+hpr/*.mode1v3
+hpr/*.db
+hpr/*.LSOverride
+hpr/*.xcuserdata
+hpr/*.xcschememanagement.plist
+hpr/build-*
+hpr/ipch/*
+hpr/gui/*
+hpr/Icon?
+hpr/.DS_Stor*
