@@ -7,6 +7,7 @@
 #include <complex>
 #include <iostream>
 #include <valarray>
+#include <cassert>
 
 //const double PI = 3.141592653589793238460;
 
@@ -25,7 +26,7 @@ struct Chunk
 	const int nFrames;
 };
 
-template <typename FloatingPointType = double>
+template <typename FType = double>
 struct CircularBuffer
 {
 
@@ -36,14 +37,14 @@ struct CircularBuffer
 	{
 	}
 
-	void push(FloatingPointType x)
+	void push(FType x)
 	{
 		data[index++] = x;
 		if (index == size)
 			index = 0;
 	}
 
-	void push(FloatingPointType const * const newData, const int n) noexcept
+	void push(FType const * const newData, const int n) noexcept
 	{
 		int i = 0;
 		while (i < n)
@@ -56,19 +57,73 @@ struct CircularBuffer
 		}
 	}
 
+	FType get(int i)
+	{
+		assertm(i < (2 * size), "CircularBuffer[index] -> index is out of bounds even after offset!");
+		const int offsetIndex = i < size ? index + i : i - size;
+		return data[offsetIndex];
+	}
+
+	FType& operator[](int i) { return get(i); }
+	const FType& operator[](int i) const { return get(i); }
 
 	/**
 	* Works mainly for non-real-time applications (allocation)
 	*/
-	std::valarray<FloatingPointType> getShifted() const noexcept
+	std::valarray<FType> getShifted() const noexcept
 	{
 		return data.cshift(index);
 	}
 
 	const unsigned int size;
-	std::valarray<FloatingPointType> data;
+	std::valarray<FType> data;
 	int index;
 };
+
+// template <typename FType = double, int Size = SPECTRUM_REAL_SIZE>
+// struct CircularBufferPrealloc
+// {
+// 
+// 	CircularBufferPrealloc()
+// 	{
+// 		for (auto i = 0; i < Size; ++i)
+// 			data[i] = 0.0;
+// 	}
+// 
+// 	void push(FType x)
+// 	{
+// 		data[index++] = x;
+// 		if (index == size)
+// 			index = 0;
+// 	}
+// 
+// 	void push(FType const * const newData, const int n) noexcept
+// 	{
+// 		int i = 0;
+// 		while (i < n)
+// 		{
+// 			while (index < size && i < n)
+// 				data[index++] = newData[i++];
+// 
+// 			if (index == size)
+// 				index = 0;
+// 		}
+// 	}
+// 
+// 	FType get(int i)
+// 	{
+// 		assertm(i < (2 * size), "CircularBuffer[index] -> index is out of bounds even after offset!");
+// 		const int offsetIndex = i < size ? index + i : i - size;
+// 		return data[offsetIndex];
+// 	}
+// 
+// 	FType& operator[](int i) { return get(i); }
+// 	const FType& operator[](int i) const { return get(i); }
+// 
+// 	std::array<FType, Size> data;
+// 	int index = 0;
+// };
+// 
 
 /**
 * Twin circularbuffers that can be toggled to produce OLA
@@ -90,7 +145,6 @@ struct ToggleBuffer
 	std::valarray<FType> getShifted() const noexcept
 	{
 		return buffers[index].getShifted();
-
 	}
 
 
@@ -119,15 +173,82 @@ enum EControlTags
 	kCtrlTagDebug2
 };
 
-#define HARMONICS_MEDIAN_LEN 1
-#define PERCUSSIVE_MEDIAN_LEN 200
-#define SPECTRUM_SIZE 2048
-#define SPECTRUM_REAL_SIZE_D SPECTRUM_SIZE * 0.5
-#define Lh (SPECTRUM_SIZE / 8) // half is positive frequencies and 
-static constexpr unsigned int SPECTRUM_REAL_SIZE = (int)SPECTRUM_REAL_SIZE_D;
+#define HARMONICS_MEDIAN_LEN 3
+#define PERCUSSIVE_MEDIAN_LEN 16
+static constexpr unsigned int SPECTRUM_SIZE = PLUG_LATENCY;
+//static constexpr unsigned int SPECTRUM_REAL_SIZE_D = SPECTRUM_SIZE * 0.5;
+static constexpr unsigned int Lh = (SPECTRUM_SIZE / 8); // half is positive frequencies and 
+static constexpr unsigned int SPECTRUM_REAL_SIZE = SPECTRUM_SIZE; // (int)SPECTRUM_REAL_SIZE_D;
+static constexpr unsigned int HARMONICS_MATRIX_SIZE = HARMONICS_MEDIAN_LEN * SPECTRUM_REAL_SIZE;
 
 using namespace iplug;
 using namespace igraphics;
+
+sample median(sample * const srcDst, const int n);
+
+struct HarmonicsMatrix
+{
+	HarmonicsMatrix()
+	{
+
+		for (auto& e : data)
+			e = 0.0;
+
+		for (auto& e : indices)
+			e = 0;
+
+		for (auto& e : tmp)
+			e = 0;
+
+		// for (auto i = 0; i < HARMONICS_MATRIX_SIZE; ++i)
+		// 	data[i] = 0.0;
+
+		// for (auto i = 0; i < SPECTRUM_REAL_SIZE; ++i)
+		// 	indices[i] = 0.0;
+	}
+
+	// void push_back(const double x);
+	// void dumpMedians(sample* const dst) const;
+	void nextMedians(sample* const dst, sample* const worker, sample const* const src, int n)
+	{
+		// update values
+		for (auto i = 0; i < n; ++i)
+		{
+			data[indices[i]] = src[i];
+			advanceIndices(i);
+		}
+
+		//const int L = HARMONICS_MEDIAN_LEN;
+		
+		for (auto i = 0; i < n; ++i)
+		{
+			// Copy to tmp buffer for to take median
+			int j = 0;
+			for (auto& e : tmp)
+			{
+				e = data[indices[i]];
+				advanceIndices(i);
+			}
+			// save median value
+			dst[i] = median(tmp.data(), n);
+		}
+
+	}
+
+	void advanceIndices(int i)
+	{
+		if (indices[i] + 1 < HARMONICS_MEDIAN_LEN)
+			++indices[i];
+		else
+			indices[i] = 0;
+	}
+
+
+	std::array<unsigned int, SPECTRUM_REAL_SIZE> indices;
+	std::array<double, HARMONICS_MATRIX_SIZE> data;
+	std::array<double, HARMONICS_MEDIAN_LEN> tmp;
+};
+
 
 class hpr final : public Plugin
 {
@@ -148,6 +269,7 @@ public:
 	ToggleBuffer olaBuffer;
 
 
+	HarmonicsMatrix harmonicsMatrix;
 	std::vector<sample> harmonics;
 	std::vector<sample> percussive;
 	std::vector<sample> residual;
