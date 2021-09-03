@@ -71,7 +71,7 @@ void testMedian()
 
 hpr::hpr(const InstanceInfo& info)
 	: Plugin(info, MakeConfig(kNumParams, kNumPresets))
-	, workerComplexBuffer(Complex(), SPECTRUM_REAL_SIZE)
+	, complexBuffer(Complex(), SPECTRUM_REAL_SIZE)
 	, olaBuffer(SPECTRUM_REAL_SIZE * 0.5)
 	//, lambdaDrawBuffer(SPECTRUM_REAL_SIZE * 64)
 {
@@ -81,10 +81,13 @@ hpr::hpr(const InstanceInfo& info)
 	GetParam(kP)->InitDouble("P", 0., 0., 100.0, 0.01, "%");
 	GetParam(kR)->InitDouble("R", 0., 0., 100.0, 0.01, "%");
 
-	sampleBuffer.resize(SPECTRUM_SIZE, -1.0);
-	workerBuffer.resize(SPECTRUM_SIZE, -1.0);
-	previousBuffer.resize(SPECTRUM_SIZE, -1.0);
-	nextOutputs.resize(SPECTRUM_SIZE, -1.0);
+	sampleBuffer.resize(SPECTRUM_SIZE, 0.0);
+	workerBuffer.resize(SPECTRUM_SIZE, 0.0);
+	previousBuffer.resize(SPECTRUM_SIZE, 0.0);
+	nextOutputs.resize(SPECTRUM_SIZE, 0.0);
+
+	start.resize(SPECTRUM_REAL_SIZE / 4, 0.0);
+	end.resize(SPECTRUM_REAL_SIZE / 4, 0.0);
 
 #if IPLUG_EDITOR // http://bit.ly/2S64BDd
 	mMakeGraphicsFunc = [&]() {
@@ -168,7 +171,7 @@ hpr::hpr(const InstanceInfo& info)
 	testMedian();
 }
 
-void medianHarmonics(sample* const dst, sample* const worker, CircularBuffer<double> * const src, int nFrames)
+void medianHarmonics(sample* const dst, sample* const worker, CircularBuffer * const src, int nFrames)
 {
 
 	// const int L = HARMONICS_MEDIAN_LEN;
@@ -228,34 +231,34 @@ void hann(sample* const dst, const int n)
 }
 
 
-void normaliseForLogScale(sample* const srcDst, sample* const dampingBuffer, int nFrames)
-{
-	constexpr int halfSpectrum = SPECTRUM_REAL_SIZE;
-	constexpr double ratio = 22000.0 / halfSpectrum;
-	static const double highF = std::log10(22000);
-	static const double lowF = std::log10(100);
-	static const double fRange = highF - lowF;
-	for (int s = 0; s < halfSpectrum; ++s)
-	{
-		int idx = std::log2(1.0 + s / (double)halfSpectrum) * halfSpectrum;
-		//int idx = std::log10(1.0 + ((s * ratio) / 261.0)) * 261; // wikipedia frequency log scale
-		//int idx = 511 * (std::log10(1.0 + s * ratio) - lowF) / fRange; // stackoverflow copypaste
-		sample newS = (srcDst[s] / 50.0) - 1.0;
-		sample oldS = dampingBuffer[idx];
-		srcDst[idx] = std::max(newS, 0.9 * (oldS + 1.0) - 1.0);
-	}
-}
-void spectrogram(CircularBuffer<sample>* dst, std::valarray<Complex>& const src, const int n) noexcept
-{
-	// takes fft'd buffer, calc energy in other buffer
-	for (auto i = 0; i < n; ++i)
-	{
-		const auto x = src[i];
-		const auto real = x.real();
-		const auto im = x.imag();
-		dst->push(10 * std::log(real * real + im * im));
-	}
-}
+// void normaliseForLogScale(sample* const srcDst, sample* const dampingBuffer, int nFrames)
+// {
+// 	constexpr int halfSpectrum = SPECTRUM_REAL_SIZE;
+// 	constexpr double ratio = 22000.0 / halfSpectrum;
+// 	static const double highF = std::log10(22000);
+// 	static const double lowF = std::log10(100);
+// 	static const double fRange = highF - lowF;
+// 	for (int s = 0; s < halfSpectrum; ++s)
+// 	{
+// 		int idx = std::log2(1.0 + s / (double)halfSpectrum) * halfSpectrum;
+// 		//int idx = std::log10(1.0 + ((s * ratio) / 261.0)) * 261; // wikipedia frequency log scale
+// 		//int idx = 511 * (std::log10(1.0 + s * ratio) - lowF) / fRange; // stackoverflow copypaste
+// 		sample newS = (srcDst[s] / 50.0) - 1.0;
+// 		sample oldS = dampingBuffer[idx];
+// 		srcDst[idx] = std::max(newS, 0.9 * (oldS + 1.0) - 1.0);
+// 	}
+// }
+// void spectrogram(CircularBuffer* dst, std::valarray<Complex>& const src, const int n) noexcept
+// {
+// 	// takes fft'd buffer, calc energy in other buffer
+// 	for (auto i = 0; i < n; ++i)
+// 	{
+// 		const auto x = src[i];
+// 		const auto real = x.real();
+// 		const auto im = x.imag();
+// 		dst->push(10 * std::log(real * real + im * im));
+// 	}
+// }
 void fromReal(std::valarray<Complex>& dst, sample const* const src, const int n)
 {
 	for (int s = 0; s < n; s++)
@@ -274,37 +277,37 @@ void process()
 
 void fromMono(sample** dst, sample* src, const int nChans, const int n)
 {
-	for (int c = 0; c < nChans; ++c) {
-		std::copy_n(src, n, dst[c]);
-	}
+	for (int ch = 0; ch < nChans; ++ch)
+		for (int s = 0; s < n; ++s)
+			dst[ch][s] = 0.0;
+	
+	for (int ch = 0; ch < nChans; ++ch)
+		for (int s = 0; s < n; ++s)
+			dst[ch][s] += src[s];
 
 }
 void toMono(sample* dst, sample** src, const int nChans, const int n, const int offset = 0)
 {
-	int r = 1.0 / (float)nChans;
-	auto combine = [&r = r](const double x) { return x * r;  };
+	const sample r = 1.0 / (sample)nChans;
 
 	// First channel
-	std::copy_n(src[0], n, dst);
-	std::for_each_n(dst, n, combine);
+	for (auto i = 0; i < n; ++i)
+		dst[i] = src[0][offset + i] * r;
 
 	// Consecutive channels
 	int i = 0;
-	for (int c = 1; c < nChans; ++c) {
-		i = 0;
-		sample* chanSrc = src[c];
-		std::for_each_n(dst, n, [&i = i, &r = r, &chanSrc = chanSrc, offset = offset](const double x) {
-			return x + chanSrc[offset + i++] * r;
-			});
+	for (int c = 1; c < nChans; ++c)
+	{
+		for (auto i = 0; i < n; ++i) 
+			dst[i] = dst[i] + src[c][offset + i] * r;
 	}
 }
-
 void hpr::ProcessBlock(sample** inputs, sample** outputs, int nFrames)
 {
-	const double gain = GetParam(kGain)->Value() / 100.;
-	const int nChans = NOutChansConnected();
-	constexpr int windowL = SPECTRUM_REAL_SIZE * 0.5;
-	constexpr int hopSize = windowL * 0.5;
+	//const double gain = GetParam(kGain)->Value() / 100.;
+	const size_t nChans = NOutChansConnected();
+	constexpr size_t windowL = SPECTRUM_REAL_SIZE / 2;
+	constexpr size_t hopSize = windowL / 2;
 
 	// nFrames should be checked and aggrued with a circBuffer or similar to equate the spectrum seg length
 	// now we're taking a shortcut and expecting a appropriately sized frame size
@@ -312,63 +315,82 @@ void hpr::ProcessBlock(sample** inputs, sample** outputs, int nFrames)
 	// e.g. Reaper
 	assert(SPECTRUM_REAL_SIZE == nFrames);
 
-	fromMono(outputs, previousBuffer.data(), nChans, nFrames);
+	// test audio and latency
+	//for (auto i = 0; i < nChans; ++i)
+	//	for (auto j = 0; j < nFrames; ++j)
+	//		outputs[i][j] = inputs[i][j];
+
+	// test mono-stereo functions
+	//fromMono(outputs, sampleBuffer.data(), nChans, nFrames);
+	//toMono(sampleBuffer.data(), inputs, nChans, nFrames);
+	//return;
 
 	std::fill_n(sampleBuffer.begin(), nFrames, 0.0);
-	std::fill_n(previousBuffer.begin(), nFrames, 0.0);
 	std::fill_n(workerBuffer.begin(), nFrames, 0.0);
-
 	// OLA
-	const int endIndexOfHops = nFrames - (hopSize + 1);
-	for (auto wi = 0; wi < endIndexOfHops; wi += hopSize)
+	toMono(sampleBuffer.data(), inputs, nChans, hopSize);
+
+	// Last half
+	// olaBuffer.push(sampleBuffer.data(), hopSize);
+	// olaBuffer.getShifted(workerBuffer.data(), windowL);
+
+	for (auto i = 0; i < hopSize; ++i)
+		workerBuffer[i] = start[i];
+	//std::copy_n(start.begin(), hopSize, workerBuffer.begin());
+	for (auto i = 0; i < hopSize; ++i)
+		workerBuffer[i + hopSize] = sampleBuffer[i];
+	//std::copy_n(sampleBuffer.begin(), hopSize, workerBuffer.begin() + hopSize);
+
+	hann(workerBuffer.data(), windowL);
+	fromReal(complexBuffer, workerBuffer.data(), windowL);
+	fft(complexBuffer);
+
+	// <<-- put some magic here
+
+	ifft(complexBuffer);
+	toReal(workerBuffer.data(), complexBuffer, windowL);
+
+
+	// write beginning of this window to the end of the buffer to be output now
+	for (size_t i = 0; i < hopSize; ++i)
+    	previousBuffer[i + wi] += workerBuffer[i];
+
+	// With nFrames latency, we write the concluded buffer here
+	if (initted)
+		fromMono(outputs, previousBuffer.data(), nChans, nFrames);
+	else
+		initted = true;
+
+	// write end of this window to the beginning of the buffer to be output next
+	std::fill_n(previousBuffer.begin(), nFrames, 0.0);
+	for (size_t i = 0; i < hopSize; ++i)
+		previousBuffer[i] = workerBuffer[hopSize + i];
+
+	const int endIndexOfHops = 1 + nFrames - windowL;
+	for (wi = 0; wi < endIndexOfHops; wi += hopSize)
 	{
-		toMono(workerBuffer.data(), inputs, 2, windowL);
-		hann(sampleBuffer.data(), workerBuffer.data(), windowL);
-		fromReal(workerComplexBuffer, sampleBuffer.data(), windowL);
-		fft(workerComplexBuffer);
+		toMono(sampleBuffer.data(), inputs, nChans, windowL, wi);
+		hann(sampleBuffer.data(), windowL);
+		fromReal(complexBuffer, sampleBuffer.data(), windowL);
+		fft(complexBuffer);
+
 		// <<-- put some magic here
-		ifft(workerComplexBuffer);
-		toReal(sampleBuffer.data(), workerComplexBuffer, windowL);
+
+		ifft(complexBuffer);
+		toReal(sampleBuffer.data(), complexBuffer, windowL);
 		for (auto i = 0; i < windowL; ++i)
 			previousBuffer[i + wi] += sampleBuffer[i];
 	}
-	
+
+	// Push_back first half for the next round
+	//wi += hopSize;
+	// for (auto i = 0; i < hopSize; ++i)
+	// 	olaBuffer.push(sampleBuffer.data() + hopSize, hopSize);
+
+	toMono(start.data(), inputs, nChans, hopSize, wi);
+	//std::copy_n(sampleBuffer.begin() + hopSize, hopSize, start.begin());
+
 	return;
-
-	// zero
-	// combine to mono
-	toMono(workerBuffer.data(), inputs, 2, windowL);
-
-	// TODO: consider mono or stereo?
-
-	hann(sampleBuffer.data(), workerBuffer.data(), windowL);
-	fromReal(workerComplexBuffer, workerBuffer.data(), windowL);
-
-	fft(workerComplexBuffer);
-	// magic
-	ifft(workerComplexBuffer);
-	toReal(workerBuffer.data(), workerComplexBuffer, windowL);
-
-	// first half of OLA
-	// on first run, it's initialised as zero
-	olaBuffer.push(workerBuffer.data(), windowL);
-	auto ob = olaBuffer.getShifted();
-
-
-
-
-	//////////////////////////////////////////////////
-	// pass 1/4
-	hann(sampleBuffer.data(), sampleBuffer.data(), nFrames);
-	for (int s = 0; s < nFrames; s++)
-		workerComplexBuffer[s] = Complex(sampleBuffer[s], 0);
-
-	fft(workerComplexBuffer);
-
-	//spectrogram(&lambdaDrawBuffer, workerComplexBuffer, nFrames/2);
-
-	//const auto Lh = SPECTRUM_SIZE / (2 * 4);
-
 	//////////////////////////////////////////////////
 	//  Harmonics
 	//for (auto i = 0; i < 4; ++i)
@@ -387,52 +409,19 @@ void hpr::ProcessBlock(sample** inputs, sample** outputs, int nFrames)
 
 	//////////////////////////////////////////////////
 	// Harmonics
-	{
-		toReal(sampleBuffer.data(), workerComplexBuffer, windowL);
-		harmonicsMatrix.nextMedians(harmonics.data(), workerBuffer.data(), sampleBuffer.data(), windowL);
-		sampleBuffer = harmonics;
-	}
+	// {
+	// 	toReal(sampleBuffer.data(), workerComplexBuffer, windowL);
+	// 	harmonicsMatrix.nextMedians(harmonics.data(), workerBuffer.data(), sampleBuffer.data(), windowL);
+	// 	sampleBuffer = harmonics;
+	// }
 
 
 	//////////////////////////////////////////////////
 
-	fromReal(workerComplexBuffer, sampleBuffer.data(), windowL);
-	ifft(workerComplexBuffer);
-	toReal(previousBuffer.data(), workerComplexBuffer, windowL);
-
-	toReal(outputs[0], workerComplexBuffer, nFrames);
-	toReal(outputs[1], workerComplexBuffer, nFrames);
-
-	// end of pass 1/4
-	//////////////////////////////////////////////////
-
-	// X = X0 + (X1 - X0)(log(V) - log(V0)) / (log(V1) - log(V0))
-
-
-	//normaliseForLogScale(sampleBuffer.data(), previousBuffer.data(), nFrames);
-
-	//medianHorizontal(workerBuffer, harmonics.data(), nFrames);
-	//medianVertical(*inputs, percussive.data(), nFrames);
-	//calculateResidual(*inputs, harmonics.data(), percussive.data(), residual.data(), nFrames);
-
-	/**
-	Senders for different components
-
-	*/
-	//sample* pData = sampleBuffer.data();
-	//spectrumSender.ProcessBlock(&pData, nFrames/2, kCtrlTagSpectrum, 1);
-
-	//auto currentMax = std::max_element(sampleBuffer.begin(), sampleBuffer.begin() + nFrames/2);
-	//mLastOutputData.vals[0] = (float)nFrames;
-	//textSender.PushData(mLastOutputData);
-
-	//mLastOutputData2.vals[0] = 100;// (float)currentMax;
-	//textSender2.PushData(mLastOutputData2);
 }
 #endif
 
 
-BEGIN_IPLUG_NAMESPACE
 void fft(CArray& x)
 {
 	const size_t N = x.size();
@@ -469,6 +458,5 @@ void ifft(CArray& x)
 	// scale the numbers
 	x /= x.size();
 }
-END_IPLUG_NAMESPACE
 
 

@@ -1,4 +1,4 @@
-<REAPER_PROJECT 0.1 "6.21/win64" 1630661407
+<REAPER_PROJECT 0.1 "6.21/win64" 1630683821
   RIPPLE 0
   GROUPOVERRIDE 0 0 0
   AUTOXFADE 1
@@ -99,7 +99,7 @@
     SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
     FREEMODE 0
     SEL 1
-    REC 1 5088 1 0 0 0 0
+    REC 0 5088 1 0 0 0 0
     VU 2
     TRACKHEIGHT 0 0 0 0 0 0
     INQ 0 0 0 0.5 100 0 0 100
@@ -110,9 +110,9 @@
     MIDIOUT -1
     MAINSEND 1 0
     <FXCHAIN
-      WNDRECT 484 267 400 450
-      SHOW 8
-      LASTSEL 7
+      WNDRECT 484 267 527 262
+      SHOW 5
+      LASTSEL 4
       DOCKED 0
       BYPASS 1 0 0
       <JS synthesis/sine_sweep ""
@@ -146,13 +146,13 @@
       FXID {59C3E232-9D20-4E52-8094-410CDADADEB8}
       WAK 0 0
       BYPASS 0 0 0
-      <VST "VST3: HPR on a stick 2 (JT)" hpr.vst3 0 "" 936907888{F2AEE70D00DE4F4E4A5466786A494A61} ""
+      <VST "VST3: Harmonics-percussive-residual (JT)" hpr.vst3 0 "" 936907888{F2AEE70D00DE4F4E4A5466786A494A61} ""
         cBTYN+5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAANAAAAAEAAAD//xAA
-        JAAAAAEAAAAAAAAAAADwPwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
+        JAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
         AAAQAAAA
       >
-      FLOAT 1169 466 316 166
-      FXID {8098ACC0-E524-4A5E-8DC6-40FB0F9D476A}
+      FLOATPOS 0 0 0 0
+      FXID {530E3113-B00A-4C60-A9B1-569439D8F5F9}
       WAK 0 0
       BYPASS 0 0 0
       <JS analysis/gfxspectrograph ""
@@ -170,7 +170,7 @@
       WAK 0 0
       BYPASS 0 0 0
       <JS analysis/gfxscope ""
-        26.713530 4.000000 2.460000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+        119.721735 -6.600000 2.460000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
       >
       FLOAT 923 668 656 464
       FXID {1D1B2127-BF5A-489E-92BE-0ACB0AF018CF}

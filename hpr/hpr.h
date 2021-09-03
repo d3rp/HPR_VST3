@@ -11,10 +11,13 @@
 
 //const double PI = 3.141592653589793238460;
 
-typedef std::complex<double> Complex;
+
+using namespace iplug;
+using namespace igraphics;
+
+typedef std::complex<sample> Complex;
 typedef std::valarray<Complex> CArray;
 
-BEGIN_IPLUG_NAMESPACE
 void fft(CArray& x);
 void ifft(CArray& x);
 
@@ -26,7 +29,6 @@ struct Chunk
 	const int nFrames;
 };
 
-template <typename FType = double>
 struct CircularBuffer
 {
 
@@ -37,14 +39,14 @@ struct CircularBuffer
 	{
 	}
 
-	void push(FType x)
-	{
-		data[index++] = x;
-		if (index == size)
-			index = 0;
-	}
+	// void push(sample x)
+	// {
+	// 	data[index++] = x;
+	// 	if (index == size)
+	// 		index = 0;
+	// }
 
-	void push(FType const * const newData, const int n) noexcept
+	void push(sample const * const newData, const int n) noexcept
 	{
 		int i = 0;
 		while (i < n)
@@ -57,26 +59,29 @@ struct CircularBuffer
 		}
 	}
 
-	FType get(int i)
+	sample get(int i) const
 	{
-		assertm(i < (2 * size), "CircularBuffer[index] -> index is out of bounds even after offset!");
-		const int offsetIndex = i < size ? index + i : i - size;
+		// CircularBuffer[index] -> index is out of bounds even after offset!
+		assert(i < (2 * size));
+
+		const int offsetIndex = (index + i) < size ? index + i : i - size;
 		return data[offsetIndex];
 	}
 
-	FType& operator[](int i) { return get(i); }
-	const FType& operator[](int i) const { return get(i); }
+	//sample& operator[](int i) { return get(i); }
+	const sample& operator[](int i) const { return get(i); }
 
-	/**
-	* Works mainly for non-real-time applications (allocation)
-	*/
-	std::valarray<FType> getShifted() const noexcept
+	void getShifted(sample* const dst, int n) const noexcept
 	{
-		return data.cshift(index);
+		// Oh no, should've kept books about buffer sizes..
+		assert(n <= size);
+
+		for (auto i = 0; i < size; ++i)
+			dst[i] = get(i);
 	}
 
 	const unsigned int size;
-	std::valarray<FType> data;
+	std::valarray<sample> data;
 	int index;
 };
 
@@ -125,36 +130,39 @@ struct CircularBuffer
 // };
 // 
 
-/**
-* Twin circularbuffers that can be toggled to produce OLA
-*/
-struct ToggleBuffer
-{
-	using FType = double;
-	ToggleBuffer(const int n)
-		:buffers{ CircularBuffer<FType>(n), CircularBuffer<FType>(n) }
-	{ }
-
-	void push(FType&& x) { buffers[index].push(x); }
-
-	void push(FType const * const newData, const int n) noexcept
-	{
-		buffers[index].push(newData, n);
-	}
-
-	std::valarray<FType> getShifted() const noexcept
-	{
-		return buffers[index].getShifted();
-	}
-
-
-	void flip() { index = (int)!bIdx; }
-
-	CircularBuffer<FType> buffers[2];
-	bool bIdx = 0;  // hack
-	unsigned int index = 0;
-};
-END_IPLUG_NAMESPACE
+// /**
+// * Twin circularbuffers that can be toggled to produce OLA
+// */
+// struct ToggleBuffer
+// {
+// 	using FType = double;
+// 	ToggleBuffer(const int n)
+// 		:buffers{ CircularBuffer<FType>(n), CircularBuffer<FType>(n) }
+// 	{ }
+// 
+// 	void push(FType&& x) { buffers[index].push(x); }
+// 
+// 	void push(FType const * const newData, const int n) noexcept
+// 	{
+// 		buffers[index].push(newData, n);
+// 	}
+// 
+// 	std::valarray<FType> getShifted() const noexcept
+// 	{
+// 		return buffers[index].getShifted();
+// 	}
+// 
+// 	void getShifted(FType* const dst, int n) noexcept
+// 	{
+// 		buffers[index].getShifted(dst, n);
+// 	}
+// 
+// 	void flip() { index = (int)!bIdx; }
+// 
+// 	CircularBuffer<FType> buffers[2];
+// 	bool bIdx = 0;  // hack
+// 	unsigned int index = 0;
+// };
 
 const int kNumPresets = 1;
 enum EParams
@@ -181,8 +189,6 @@ static constexpr unsigned int Lh = (SPECTRUM_SIZE / 8); // half is positive freq
 static constexpr unsigned int SPECTRUM_REAL_SIZE = SPECTRUM_SIZE; // (int)SPECTRUM_REAL_SIZE_D;
 static constexpr unsigned int HARMONICS_MATRIX_SIZE = HARMONICS_MEDIAN_LEN * SPECTRUM_REAL_SIZE;
 
-using namespace iplug;
-using namespace igraphics;
 
 sample median(sample * const srcDst, const int n);
 
@@ -243,7 +249,6 @@ struct HarmonicsMatrix
 			indices[i] = 0;
 	}
 
-
 	std::array<unsigned int, SPECTRUM_REAL_SIZE> indices;
 	std::array<double, HARMONICS_MATRIX_SIZE> data;
 	std::array<double, HARMONICS_MEDIAN_LEN> tmp;
@@ -260,13 +265,19 @@ public:
 	void ProcessBlock(sample** inputs, sample** outputs, int nFrames) override;
 #endif
 
-	std::valarray<Complex> workerComplexBuffer;
+	bool initted = false;
+	size_t wi = 0;
+	std::valarray<Complex> complexBuffer;
 	std::array<sample, Lh> medianHarmonics;
 	std::vector<sample> sampleBuffer;
 	std::vector<sample> workerBuffer;
+	std::vector<sample> workerBuffer2;
 	std::vector<sample> previousBuffer;
 	std::vector<sample> nextOutputs;
-	ToggleBuffer olaBuffer;
+	CircularBuffer olaBuffer;
+	std::vector<sample> start;
+	std::vector<sample> end;
+
 
 
 	HarmonicsMatrix harmonicsMatrix;
