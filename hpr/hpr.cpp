@@ -71,23 +71,24 @@ void testMedian()
 
 hpr::hpr(const InstanceInfo& info)
 	: Plugin(info, MakeConfig(kNumParams, kNumPresets))
-	, complexBuffer(Complex(), SPECTRUM_REAL_SIZE)
-	, olaBuffer(SPECTRUM_REAL_SIZE * 0.5)
-	//, lambdaDrawBuffer(SPECTRUM_REAL_SIZE * 64)
+	, complexBuffer(Complex(), FFT_SIZE)
+	, olaBuffer(FFT_SIZE * 0.5)
 {
 
 	//GetParam(kGain)->InitDouble("Gain", 50.0, 0.0, 100.0, 0.01, "%");
-	GetParam(kH)->InitDouble("H", 0., 0., 100.0, 0.01, "%");
-	GetParam(kP)->InitDouble("P", 0., 0., 100.0, 0.01, "%");
-	GetParam(kR)->InitDouble("R", 0., 0., 100.0, 0.01, "%");
+	GetParam(kH)->InitDouble("H", 50.0, 0., 100.0, 0.01, "%");
+	GetParam(kP)->InitDouble("P", 50.0, 0., 100.0, 0.01, "%");
+	GetParam(kR)->InitDouble("R", 10.0, 0., 100.0, 0.01, "%");
 
-	sampleBuffer.resize(SPECTRUM_SIZE, 0.0);
-	workerBuffer.resize(SPECTRUM_SIZE, 0.0);
-	previousBuffer.resize(SPECTRUM_SIZE, 0.0);
-	nextOutputs.resize(SPECTRUM_SIZE, 0.0);
+	sampleBuffer.resize(FFT_SIZE, 0.0);
+	workerBuffer.resize(FFT_SIZE, 0.0);
+	previousBuffer.resize(FFT_SIZE, 0.0);
+	nextOutputs.resize(FFT_SIZE, 0.0);
+	harmonics.resize(FFT_SIZE, 0.0);
+	percussive.resize(FFT_SIZE, 0.0);
 
-	start.resize(SPECTRUM_REAL_SIZE / 4, 0.0);
-	end.resize(SPECTRUM_REAL_SIZE / 4, 0.0);
+	start.resize(FFT_SIZE / 4, 0.0);
+	end.resize(FFT_SIZE / 4, 0.0);
 
 #if IPLUG_EDITOR // http://bit.ly/2S64BDd
 	mMakeGraphicsFunc = [&]() {
@@ -108,87 +109,25 @@ hpr::hpr(const InstanceInfo& info)
 		auto nextCell = [&]() {
 			return left.GetGridCell(++cellIdx, nRows, nCols).GetPadded(-5.);
 		};
-
-		//const IRECT right = pGraphics->GetBounds().GetReducedFromLeft(left.W()).GetReducedFromRight(10);
-		//const IRECT rightMost = pGraphics->GetBounds().GetFromRight(10); // GetReducedFromLeft(left.W()).GetReducedFromRight(10);
-
-		//pGraphics->AttachControl(new ITextControl(nextCell(), "HPR", IText(50, getColor(Colors::FG2))));
-		//pGraphics->AttachControl(new IRTTextControl<1, float>(nextCell(), "window: %.0f", ":", "IRTTextControl", IText(20, getColor(Colors::FG2))), kCtrlTagDebug);
-		//pGraphics->AttachControl(new IRTTextControl<1, float>(nextCell(), "max amp: %.0f", ":", "IRTTextControl2", IText(20, getColor(Colors::FG2))), kCtrlTagDebug2);
-		//pGraphics->AttachControl(new IVKnobControl(nextCell(), kGain, "", knobStyle()));
 		pGraphics->AttachControl(new IVKnobControl(nextCell(), kH, "", knobStyle()));
 		pGraphics->AttachControl(new IVKnobControl(nextCell(), kP, "", knobStyle()));
 		pGraphics->AttachControl(new IVKnobControl(nextCell(), kR, "", knobStyle()));
-		//pGraphics->AttachControl(new IVKnobControl(b.GetCentredInside(100).GetVShifted(-100).GetHShifted(100), kDither));
-		//pGraphics->AttachControl(new Spectrograph(b.GetCentredInside(100).GetVShifted(-100).GetHShifted(100)), kCtrlTagSpectrum);
-	/*    pGraphics->AttachControl(new IVPlotControl(nextCell(),{
-		  { COLOR_WHITE, [](double d) { return d;  } } },
-		 1024, "fooPlot"), kCtrlTagSpectrum);
-	*/
-
-	//  const int realSpectrumSize = SPECTRUM_REAL_SIZE;
-	//  const int spectrogramW = (lambdaDrawBuffer.size / realSpectrumSize);
-	//  const float spectrogramScale = right.H() / realSpectrumSize;
-	//  const float spectrogramLineW = right.W() / spectrogramW;
-	//  pGraphics->AttachControl(new ILambdaControl(right,
-	//      [
-	//          &lambdaDrawBuffer = lambdaDrawBuffer,
-	//          realSpectrumSize = realSpectrumSize,
-	//          spectrogramW = spectrogramW,
-	//          scale = spectrogramScale,
-	//          lineW = spectrogramLineW
-	//      ](ILambdaControl* pCaller, IGraphics& g, IRECT& r) {
-	//          auto b = lambdaDrawBuffer.getShifted();
-	//          const IColor lineColor(255, 255, 255, 255);
-
-	//          g.PathLine(r.L, r.T, r.L, r.T);
-	//          //g.PathLineTo(r.L, r.T);
-	//          for (auto j = 0; j < spectrogramW; ++j)
-	//          {
-	//              const float x = r.L + lineW * j;
-	//              for (auto i = 1; i < realSpectrumSize; ++i)
-	//              {
-	//                  const float y0 = r.B - scale * (i - 1);
-	//                  const float y1 = r.B - scale * i;
-	//                  const float ampl = b[i + j * realSpectrumSize];
-	//                  g.PathRect(IRECT(x, y0, x + lineW, y1));
-	//                  g.PathFill(IColor(ampl * 255, 255, 255, 255));
-	//              }
-	//          }
-	//          
-	//          // bounds from r
-	//          // pCaller->GetAnimationProgress() for interpolation steps
-	//          // pCaller-> mouse state from pCaller etc
-	//          // g.PathTriangle(...), g.PathFill(color), g.PathFill(...), 
-
-	//      }, 1, false, true));
-		  //pGraphics->AttachControl(new IVScopeControl<1, SPECTRUM_REAL_SIZE>(rightMost, "",
-		//DEFAULT_STYLE
-		//  .WithColor(kBG, getColor(Colors::BG))
-		// .WithColor(kFG, COLOR_WHITE)), kCtrlTagSpectrum);
 	};
+	//runTests();
 #endif
-	testMedian();
 }
 
-void medianHarmonics(sample* const dst, sample* const worker, CircularBuffer * const src, int nFrames)
+void runTests()
 {
+	testMedian();
 
-	// const int L = HARMONICS_MEDIAN_LEN;
-	// const int halfP = L / 2;
-	// const int N = SPECTRUM_REAL_SIZE - halfP - 1;
-	// for (auto i = halfP; i < N; ++i)
-	// {
-	// 	const auto* s = &src[i - halfP];
-	// 	dst[i] = median(worker, s, L);
-	// }
 }
 
 void medianPercussive(sample* const dst, sample* const worker, sample const * const src, int n)
 {
 	const int L = PERCUSSIVE_MEDIAN_LEN;
 	const int halfP = L / 2;
-	const int N = SPECTRUM_REAL_SIZE - halfP - 1;
+	const int N = FFT_SIZE - halfP - 1;
 	for (auto i = halfP; i < N; ++i)
 	{
 		const auto* s = &src[i - halfP];
@@ -270,11 +209,6 @@ void toReal(sample* dst, std::valarray<Complex> const& src, const int n)
 		dst[s] = src[s].real();
 }
 
-void process()
-{
-	// triggered when we have full spectrum worth of fresh data
-}
-
 void fromMono(sample** dst, sample* src, const int nChans, const int n)
 {
 	for (int ch = 0; ch < nChans; ++ch)
@@ -302,18 +236,36 @@ void toMono(sample* dst, sample** src, const int nChans, const int n, const int 
 			dst[i] = dst[i] + src[c][offset + i] * r;
 	}
 }
+
+void addWithParams(sample* const dst, sample* harm, sample* perc, const double H, const double P, const double R, int n)
+{
+	const double scale = std::max(1.0, H + P == 0 ? 0 : 1.0 / (H + P));
+
+	for (auto i = 0; i < n; ++i)
+	 	dst[i] = harm[i] * H;
+
+	for (auto i = 0; i < n; ++i)
+		dst[i] += perc[i] * P;
+
+	for (auto i = 0; i < n; ++i)
+		dst[i] *= scale;
+}
+
 void hpr::ProcessBlock(sample** inputs, sample** outputs, int nFrames)
 {
 	//const double gain = GetParam(kGain)->Value() / 100.;
+	const double HGain = GetParam(kH)->Value() / 100.0;
+	const double PGain = GetParam(kP)->Value() / 100.0;
+	const double RGain = GetParam(kR)->Value() / 100.0;
 	const size_t nChans = NOutChansConnected();
-	constexpr size_t windowL = SPECTRUM_REAL_SIZE / 2;
+	constexpr size_t windowL = FFT_SIZE / 2;
 	constexpr size_t hopSize = windowL / 2;
 
 	// nFrames should be checked and aggrued with a circBuffer or similar to equate the spectrum seg length
 	// now we're taking a shortcut and expecting a appropriately sized frame size
 	// This is possible to do by tweaking the sound card and/or buffer settings in 
 	// e.g. Reaper
-	assert(SPECTRUM_REAL_SIZE == nFrames);
+	assert(FFT_SIZE == nFrames);
 
 	// test audio and latency
 	//for (auto i = 0; i < nChans; ++i)
@@ -345,11 +297,24 @@ void hpr::ProcessBlock(sample** inputs, sample** outputs, int nFrames)
 	fromReal(complexBuffer, workerBuffer.data(), windowL);
 	fft(complexBuffer);
 
-	// <<-- put some magic here
+	toReal(sampleBuffer.data(), complexBuffer, windowL);
+	{ // Harmonics
+		harmonicsMatrix.nextMedians(harmonics.data(), workerBuffer.data(), sampleBuffer.data(), windowL);
+		//sampleBuffer = harmonics;
+	}
+	//fromReal(complexBuffer, sampleBuffer.data(), windowL);
+
+	{ // Percussive
+		std::fill(workerBuffer.begin(), workerBuffer.end(), 0.0);
+		medianPercussive(percussive.data(), workerBuffer.data(), sampleBuffer.data(), windowL);
+	}
+
+	//std::copy_n(sampleBuffer.begin(), windowL, harmonics.begin());
+	addWithParams(sampleBuffer.data(), harmonics.data(), percussive.data(), HGain, PGain, RGain, windowL);
+	fromReal(complexBuffer, sampleBuffer.data(), windowL);
 
 	ifft(complexBuffer);
 	toReal(workerBuffer.data(), complexBuffer, windowL);
-
 
 	// write beginning of this window to the end of the buffer to be output now
 	for (size_t i = 0; i < hopSize; ++i)
@@ -374,7 +339,24 @@ void hpr::ProcessBlock(sample** inputs, sample** outputs, int nFrames)
 		fromReal(complexBuffer, sampleBuffer.data(), windowL);
 		fft(complexBuffer);
 
-		// <<-- put some magic here
+		toReal(sampleBuffer.data(), complexBuffer, windowL);
+		{ // Harmonics
+			harmonicsMatrix.nextMedians(harmonics.data(), workerBuffer.data(), sampleBuffer.data(), windowL);
+			//sampleBuffer = harmonics;
+		}
+		for (auto& h : harmonics)
+		{
+			assert(h < 4.0);
+		}
+
+		{ // Percussive
+			std::fill(workerBuffer.begin(), workerBuffer.end(), 0.0);
+			medianPercussive(percussive.data(), workerBuffer.data(), sampleBuffer.data(), windowL);
+		}
+
+		//std::copy_n(sampleBuffer.begin(), windowL, harmonics.begin());
+		addWithParams(sampleBuffer.data(), harmonics.data(), percussive.data(), HGain, PGain, RGain, windowL);
+		fromReal(complexBuffer, sampleBuffer.data(), windowL);
 
 		ifft(complexBuffer);
 		toReal(sampleBuffer.data(), complexBuffer, windowL);
@@ -410,9 +392,6 @@ void hpr::ProcessBlock(sample** inputs, sample** outputs, int nFrames)
 	//////////////////////////////////////////////////
 	// Harmonics
 	// {
-	// 	toReal(sampleBuffer.data(), workerComplexBuffer, windowL);
-	// 	harmonicsMatrix.nextMedians(harmonics.data(), workerBuffer.data(), sampleBuffer.data(), windowL);
-	// 	sampleBuffer = harmonics;
 	// }
 
 

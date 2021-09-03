@@ -1,4 +1,4 @@
-<REAPER_PROJECT 0.1 "6.21/win64" 1630682499
+<REAPER_PROJECT 0.1 "6.21/win64" 1630691929
   RIPPLE 0
   GROUPOVERRIDE 0 0 0
   AUTOXFADE 1
@@ -112,12 +112,13 @@
     <FXCHAIN
       WNDRECT 484 267 527 262
       SHOW 5
-      LASTSEL 7
+      LASTSEL 4
       DOCKED 0
       BYPASS 1 0 0
       <JS synthesis/sine_sweep ""
         8.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
       >
+      WET 0.169986
       FLOATPOS 0 0 0 0
       FXID {BF9B6E67-D68A-4BB4-A507-CECF3C97326A}
       WAK 0 0
@@ -148,7 +149,7 @@
       BYPASS 0 0 0
       <VST "VST3: Harmonics-percussive-residual (JT)" hpr.vst3 0 "" 936907888{F2AEE70D00DE4F4E4A5466786A494A61} ""
         cBTYN+5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAANAAAAAEAAAD//xAA
-        JAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
+        JAAAAAEAAAAAAAAAAAAAAAAAAAAAAFlAOZIkSZLkSUAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
         AAAQAAAA
       >
       FLOATPOS 0 0 0 0
@@ -163,14 +164,14 @@
       WAK 0 0
       BYPASS 0 0 0
       <JS analysis/gfxanalyzer ""
-        6.000000 -120.000000 0.000000 2.000000 0.000000 0.000000 1000.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+        9.570000 -120.000000 0.000000 2.000000 0.000000 0.000000 1000.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
       >
       FLOAT 1612 535 656 464
       FXID {924274B6-69BE-41D3-92D4-4CCB0F135856}
       WAK 0 0
       BYPASS 0 0 0
       <JS analysis/gfxscope ""
-        26.713530 4.000000 2.460000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+        119.721735 -6.600000 2.460000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
       >
       FLOAT 923 668 656 464
       FXID {1D1B2127-BF5A-489E-92BE-0ACB0AF018CF}

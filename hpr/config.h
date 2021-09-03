@@ -1,7 +1,7 @@
 #define PLUG_NAME "Harmonics-percussive-residual"
 #define PLUG_MFR "JT"
 #define PLUG_VERSION_HEX 0x00010000
-#define PLUG_VERSION_STR "0.0.2"
+#define PLUG_VERSION_STR "0.0.3"
 #define PLUG_UNIQUE_ID 'jIJa'
 #define PLUG_MFR_ID 'JTfx'
 #define PLUG_URL_STR "https://iplug2.github.io"
