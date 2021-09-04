@@ -1,4 +1,4 @@
-<REAPER_PROJECT 0.1 "6.21/win64" 1630694044
+<REAPER_PROJECT 0.1 "6.21/win64" 1630698997
   RIPPLE 0
   GROUPOVERRIDE 0 0 0
   AUTOXFADE 1
@@ -140,16 +140,16 @@
       <VST "VST: ReaEQ (Cockos)" reaeq.dll 0 "" 1919247729<56535472656571726561657100000000> ""
         cWVlcu5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAAqAAAAAEAAAAAABAA
         IQAAAAQAAAAAAAAAAQAAAAAAAAAAAFlAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAAAAAAAAwHJAAAAAAAAA8D8AAAAAAAAAQAEIAAAAAQAAAAAAAAAAQI9AAAAAAAAA
-        8D8AAAAAAAAAQAEBAAAAAQAAAKvV40wSEaNAgVyZLhRN2z8AAAAAAAAAQAEBAAAAAQAAAAAAAAAAAPA/AAAAAA8CAABhAQAA
+        8D8AAAAAAAAAQAEBAAAAAQAAANXV40wSEaNAcVyZLhRN2z8AAAAAAAAAQAEBAAAAAQAAAAAAAAAAAPA/AAAAAA8CAABhAQAA
         AAAQAAAA
       >
       FLOATPOS 0 0 0 0
       FXID {59C3E232-9D20-4E52-8094-410CDADADEB8}
       WAK 0 0
-      BYPASS 1 0 0
+      BYPASS 0 0 0
       <VST "VST3: Harmonics-percussive-residual (JT)" hpr.vst3 0 "" 936907888{F2AEE70D00DE4F4E4A5466786A494A61} ""
         cBTYN+5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAANAAAAAEAAAD//xAA
-        JAAAAAEAAAAAAAAAAAAAAAAAAAAAAFlAOZIkSZLkSUAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
+        JAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
         AAAQAAAA
       >
       FLOATPOS 0 0 0 0
@@ -173,7 +173,7 @@
       <JS analysis/gfxscope ""
         119.721735 -6.600000 2.460000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
       >
-      FLOAT 923 668 656 464
+      FLOAT 1522 893 656 464
       FXID {1D1B2127-BF5A-489E-92BE-0ACB0AF018CF}
       WAK 0 0
     >
@@ -186,7 +186,7 @@
       FADEIN 1 0.01 0 1 0 0 0
       FADEOUT 1 0.01 0 1 0 0 0
       MUTE 0 0
-      SEL 1
+      SEL 0
       IGUID {28A30EDF-24D7-4D0A-A867-3F8ABCD53374}
       IID 3
       NAME F_HPR.wav
@@ -199,6 +199,50 @@
         FILE "C:\Users\j\code\py\ThinkDSP\code\F_HPR.wav"
       >
     >
+    <ITEM
+      POSITION 5
+      SNAPOFFS 0
+      LENGTH 4.99229024943311
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0 0
+      FADEOUT 1 0.01 0 1 0 0 0
+      MUTE 0 0
+      SEL 0
+      IGUID {1488F301-E29A-4ABB-A5FA-708B9E898AB2}
+      IID 5
+      NAME F_HPR.wav
+      VOLPAN 1 0 1 -1
+      SOFFS 0
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {45D6D5A8-5022-468E-BB6B-F0B66B36055E}
+      <SOURCE WAVE
+        FILE "C:\Users\j\code\py\ThinkDSP\code\F_HPR.wav"
+      >
+    >
+    <ITEM
+      POSITION 10
+      SNAPOFFS 0
+      LENGTH 4.99229024943311
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0.01 0 1 0 0 0
+      FADEOUT 1 0.01 0 1 0 0 0
+      MUTE 0 0
+      SEL 1
+      IGUID {FE6A8329-ECDA-4289-B769-B03442010D29}
+      IID 6
+      NAME F_HPR.wav
+      VOLPAN 1 0 1 -1
+      SOFFS 0
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {5B17D06A-DEB9-4DBF-927B-4BD0A03156F4}
+      <SOURCE WAVE
+        FILE "C:\Users\j\code\py\ThinkDSP\code\F_HPR.wav"
+      >
+    >
   >
   <TRACK {11B05078-40E5-4247-814F-798C568CD240}
     NAME ""
@@ -206,7 +250,7 @@
     BEAT -1
     AUTOMODE 0
     VOLPAN 1 0 -1 -1 1
-    MUTESOLO 1 0 0
+    MUTESOLO 0 0 0
     IPHASE 0
     PLAYOFFS 0 1
     ISBUS 0 0
@@ -224,6 +268,42 @@
     PERF 0
     MIDIOUT -1
     MAINSEND 1 0
+    <FXCHAIN
+      WNDRECT 833 638 527 213
+      SHOW 1
+      LASTSEL 0
+      DOCKED 0
+      BYPASS 0 0 0
+      <VST "VST3: Harmonics-percussive-residual (JT)" hpr.vst3 0 "" 936907888{F2AEE70D00DE4F4E4A5466786A494A61} ""
+        cBTYN+5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAANAAAAAEAAAD//xAA
+        JAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
+        AAAQAAAA
+      >
+      FLOATPOS 0 0 0 0
+      FXID {C11E6DC1-2883-4B79-A6F2-93628D0E4D75}
+      WAK 0 0
+      BYPASS 0 0 0
+      <JS analysis/gfxspectrograph ""
+        6.000000 2.000000 -180.000000 0.000000 0.000000 1.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+      >
+      FLOATPOS 0 0 0 0
+      FXID {EB1D91DE-F911-4791-8248-313CA29DAF5C}
+      WAK 0 0
+      BYPASS 0 0 0
+      <JS analysis/gfxanalyzer ""
+        9.570000 -120.000000 0.000000 2.000000 0.000000 0.000000 1000.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+      >
+      FLOATPOS 0 0 0 0
+      FXID {1FC29526-474F-470D-99A3-A5C9B0E2D967}
+      WAK 0 0
+      BYPASS 0 0 0
+      <JS analysis/gfxscope ""
+        119.721735 -6.600000 2.460000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+      >
+      FLOATPOS 0 0 0 0
+      FXID {1C57D8A5-4381-4EFC-B23A-9BA42D825F0B}
+      WAK 0 0
+    >
     <ITEM
       POSITION 0
       SNAPOFFS 0

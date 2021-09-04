@@ -9,9 +9,6 @@
 #include <valarray>
 #include <cassert>
 
-//const double PI = 3.141592653589793238460;
-
-
 using namespace iplug;
 using namespace igraphics;
 
@@ -70,85 +67,6 @@ struct CircularBuffer
 	int index;
 };
 
-// template <typename FType = double, int Size = SPECTRUM_REAL_SIZE>
-// struct CircularBufferPrealloc
-// {
-// 
-// 	CircularBufferPrealloc()
-// 	{
-// 		for (auto i = 0; i < Size; ++i)
-// 			data[i] = 0.0;
-// 	}
-// 
-// 	void push(FType x)
-// 	{
-// 		data[index++] = x;
-// 		if (index == size)
-// 			index = 0;
-// 	}
-// 
-// 	void push(FType const * const newData, const int n) noexcept
-// 	{
-// 		int i = 0;
-// 		while (i < n)
-// 		{
-// 			while (index < size && i < n)
-// 				data[index++] = newData[i++];
-// 
-// 			if (index == size)
-// 				index = 0;
-// 		}
-// 	}
-// 
-// 	FType get(int i)
-// 	{
-// 		assertm(i < (2 * size), "CircularBuffer[index] -> index is out of bounds even after offset!");
-// 		const int offsetIndex = i < size ? index + i : i - size;
-// 		return data[offsetIndex];
-// 	}
-// 
-// 	FType& operator[](int i) { return get(i); }
-// 	const FType& operator[](int i) const { return get(i); }
-// 
-// 	std::array<FType, Size> data;
-// 	int index = 0;
-// };
-// 
-
-// /**
-// * Twin circularbuffers that can be toggled to produce OLA
-// */
-// struct ToggleBuffer
-// {
-// 	using FType = double;
-// 	ToggleBuffer(const int n)
-// 		:buffers{ CircularBuffer<FType>(n), CircularBuffer<FType>(n) }
-// 	{ }
-// 
-// 	void push(FType&& x) { buffers[index].push(x); }
-// 
-// 	void push(FType const * const newData, const int n) noexcept
-// 	{
-// 		buffers[index].push(newData, n);
-// 	}
-// 
-// 	std::valarray<FType> getShifted() const noexcept
-// 	{
-// 		return buffers[index].getShifted();
-// 	}
-// 
-// 	void getShifted(FType* const dst, int n) noexcept
-// 	{
-// 		buffers[index].getShifted(dst, n);
-// 	}
-// 
-// 	void flip() { index = (int)!bIdx; }
-// 
-// 	CircularBuffer<FType> buffers[2];
-// 	bool bIdx = 0;  // hack
-// 	unsigned int index = 0;
-// };
-
 const int kNumPresets = 1;
 enum EParams
 {
@@ -159,14 +77,7 @@ enum EParams
 	kNumParams
 };
 
-enum EControlTags
-{
-	kCtrlTagSpectrum = 0,
-	kCtrlTagDebug,
-	kCtrlTagDebug2
-};
-
-#define HARMONICS_MEDIAN_LEN 3
+#define HARMONICS_MEDIAN_LEN 16
 #define PERCUSSIVE_MEDIAN_LEN 16
 static constexpr unsigned int FFT_SIZE = PLUG_LATENCY;
 static constexpr unsigned int HARMONICS_MATRIX_SIZE = HARMONICS_MEDIAN_LEN * FFT_SIZE;
@@ -180,71 +91,57 @@ struct HarmonicsMatrix
 
 	HarmonicsMatrix()
 		: data()
-		, indices()
 		, tmp()
 	{
-
-//		for (auto& e : data)
-//			e = 0.0;
-//
-//		for (auto& e : indices)
-//			e = 0;
-//
-//		for (auto& e : tmp)
-//			e = 0;
-
 		for (auto i = 0; i < HARMONICS_MATRIX_SIZE; ++i)
 			data[i] = 0.0;
 
-		for (auto i = 0; i < FFT_SIZE; ++i)
-		 	indices[i] = 0.0;
-
 		for (auto i = 0; i < HARMONICS_MEDIAN_LEN; ++i)
 			tmp[i] = 0.0;
-		
 	}
 
 	void nextMedians(sample* const dst, sample* const worker, sample const* const src, int n)
 	{
 		// update values
 		for (auto i = 0; i < n; ++i)
+			data[(L * i) + idx] = std::max(src[i], 1.0);
+
+		advanceIndices();
+
+		if (!enoughHistory)
 		{
-			assert(!(indices[i] < 0));
-			data[(L * i) + indices[i]] = std::max(src[i], 1.0);
-			advanceIndices(i);
+			std::copy_n(src, n, dst);
+			enoughHistory = (idx > L - 2);
 		}
 
-		//const int L = HARMONICS_MEDIAN_LEN;
-		
 		for (auto i = 0; i < n; ++i)
 		{
 			// Copy to tmp buffer for to take median
 			int j = 0;
 			for (auto& e : tmp)
-			{
-				assert(!(indices[i] < 0));
 				e = data[(L * i) + j++];
-				advanceIndices(i);
-			}
+
 			// save median value
 			dst[i] = median(tmp.data(), HARMONICS_MEDIAN_LEN);
 		}
-
 	}
 
-	void advanceIndices(const int i)
+	void advanceIndices()
 	{
-		if (indices[i] + 1 < HARMONICS_MEDIAN_LEN)
-			indices[i] += 1;
+		if (++idx < HARMONICS_MEDIAN_LEN)
+			;
 		else
-			indices[i] = 0;
+			idx = 0;
 	}
 
+	bool enoughHistory = false;
+	int idx = 0;
 	std::array<sample, HARMONICS_MATRIX_SIZE> data;
-	std::array<unsigned int, FFT_SIZE> indices;
 	std::array<sample, HARMONICS_MEDIAN_LEN> tmp;
 };
 
+void fromReal(std::valarray<Complex>& dst, sample const* const src, const int n);
+void toReal(sample* dst, std::valarray<Complex> const& src, const int n);
 
 class hpr final : public Plugin
 {
@@ -256,31 +153,134 @@ public:
 	void ProcessBlock(sample** inputs, sample** outputs, int nFrames) override;
 #endif
 
+	/**
+	Calculate masks for H, P, R and apply to samples.
+	Note: Also transforms from frequency to time-domain
+
+	Implicit buffers are
+		 harmonics	= median filtered harmonics
+		 percussive = median filtered percussive values
+		 H, P, R	= parameter selectors (multipliers applied to masks)
+		 sampleBuffer	= output after applying masks and params
+	*/
+	void calculateHPR(int windowL) noexcept
+	{
+		// Implementation based on the paper by Driedger et al.: 
+		// https://www.researchgate.net/publication/303667409_Extending_Harmonic-Percussive_Separation_of_Audio_Signals
+		const sample e = std::numeric_limits<sample>::min();
+
+		auto& harmonicsTmp = workerBuffer;
+		std::copy_n(harmonics.begin(), windowL, harmonicsTmp.begin());
+
+		auto& percussiveTmp = workerBuffer2;
+		std::copy_n(percussive.begin(), windowL, percussiveTmp.begin());
+
+		auto percIt = percussive.begin();
+		std::for_each_n(harmonicsTmp.begin(), windowL, [&](sample h) {
+			const auto p = *(percIt++);
+			if (h / (p + e) > 1.0)
+				return h;
+			else
+				return 0.0;
+			});
+
+		auto harmIt = harmonics.begin();
+		std::for_each_n(percussiveTmp.begin(), windowL, [&](sample p) {
+			const auto h = *(harmIt++);
+			if (p / (h + e) >= 1.0)
+				return p;
+			else
+				return 0.0;
+			});
+
+		const auto maxH = std::max(1.0, *std::max_element(harmonicsTmp.begin(), harmonicsTmp.begin() + windowL));
+		const auto maxP = std::max(1.0, *std::max_element(percussiveTmp.begin(), percussiveTmp.begin() + windowL));
+		const auto maxS = *std::max_element(sampleBuffer.begin(), sampleBuffer.begin() + windowL);
+		std::for_each_n(sampleBuffer.begin(), windowL, [&](sample s) { s / (maxS + e); });
+
+		for (int i = 0; i < windowL; ++i)
+		{
+			const auto h = harmonicsTmp[i] / maxH;
+			const auto p = percussiveTmp[i] / maxP;
+
+			if (h + p == 0)
+				continue;
+
+			const auto r = std::max(0.0, 1.0 - (h + p));
+
+			assert(h > 0); assert(p > 0); assert(r > 0);
+			const auto s = sampleBuffer[i];
+			
+			const auto xh = s * h;
+			const auto xp = s * p;
+			const auto xr = s * r;
+
+			assert(xh > 0); assert(xp > 0); assert(xr > 0);
+			assert(xh < 1.0); assert(xp < 1.0); assert(xr < 1.0);
+
+//			harmonics[i] = xh;
+//			percussive[i] = xp;
+//			residual[i] = xr;
+			harmonicsTmp[i] = xh + xp + xr;
+		}
+			// Time-domain
+		ifftBuffer(harmonicsTmp, windowL);
+		std::copy_n(harmonicsTmp.begin(), windowL, sampleBuffer.begin());
+//		ifftBuffer(harmonics, windowL);
+//		ifftBuffer(percussive, windowL);
+//		ifftBuffer(residual, windowL);
+
+//		std::for_each_n(harmonics.begin(), windowL, [mult=H](sample x) { return x * mult; });
+//		std::for_each_n(percussive.begin(), windowL, [mult=P](sample x) { return x * mult; });
+//		std::for_each_n(residual.begin(), windowL, [mult=R](sample x) { return x * mult; });
+//	
+//		assert(*std::max_element(harmonics.begin(), harmonics.begin() + windowL) < 1.0);
+//		assert(*std::max_element(percussive.begin(), percussive.begin() + windowL) < 1.0);
+//		assert(*std::max_element(residual.begin(), residual.begin() + windowL) < 1.0);
+//
+//		for (int i = 0; i < windowL; ++i)
+//			sampleBuffer[i] = harmonics[i] + percussive[i] + residual[i];
+//
+//		assert(*std::max_element(sampleBuffer.begin(), sampleBuffer.begin() + windowL) < 1.0);;
+	}
+	void fftBuffer(std::vector<sample>& buffer, int windowL) noexcept
+	{
+		fftBuffer(buffer.data(), windowL);
+	}
+	void fftBuffer(sample* const srcDst, int windowL) noexcept
+	{
+		fromReal(complexBuffer, srcDst, windowL);
+		fft(complexBuffer);
+		toReal(srcDst, complexBuffer, windowL);
+	}
+
+	void ifftBuffer(std::vector<sample>& buffer, int windowL) noexcept
+	{
+		ifftBuffer(buffer.data(), windowL);
+	}
+	void ifftBuffer(sample* const srcDst, int windowL) noexcept
+	{
+		fromReal(complexBuffer, srcDst, windowL);
+		ifft(complexBuffer);
+		toReal(srcDst, complexBuffer, windowL);
+	}
+
+	// Parameter multipliers to be updated from the GUI
+	double H, P, R;
+
 	bool initted = false;
 	size_t wi = 0;
+
 	std::valarray<Complex> complexBuffer;
-	//std::array<sample, Lh> medianHarmonics;
 	std::vector<sample> sampleBuffer;
 	std::vector<sample> workerBuffer;
 	std::vector<sample> workerBuffer2;
-	std::vector<sample> previousBuffer;
-	std::vector<sample> nextOutputs;
-	CircularBuffer olaBuffer;
+	std::vector<sample> nextOutput;
 	std::vector<sample> start;
-	std::vector<sample> end;
-
 
 	std::vector<sample> harmonics;
 	std::vector<sample> percussive;
 	std::vector<sample> residual;
 
 	HarmonicsMatrix harmonicsMatrix;
-
-	//CircularBuffer<sample> lambdaDrawBuffer;
-
-	//IBufferSender<1, 4, SPECTRUM_SIZE/2> spectrumSender;
-	//ISender<1> textSender;
-	//ISender<1> textSender2;
-	//ISenderData<1> mLastOutputData = { kCtrlTagDebug, 1, 0 };
-	//ISenderData<1> mLastOutputData2 = { kCtrlTagDebug2, 1, 0 };
 };

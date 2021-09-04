@@ -116,7 +116,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IntDir>$(SolutionDir)build-win\vst3\$(Platform)\$(Configuration)\int\</IntDir>
-    <LinkIncremental />
+    <LinkIncremental>false</LinkIncremental>
     <TargetExt>.vst3</TargetExt>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -332,6 +332,7 @@
     <ClInclude Include="..\..\..\iPlug2\IPlug\VST3\IPlugVST3_View.h" />
     <ClInclude Include="..\hpr.h" />
     <ClInclude Include="..\resources\resource.h" />
+    <ClInclude Include="..\Utils.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\iPlug2\Dependencies\IPlug\VST3_SDK\base\source\baseiids.cpp" />
