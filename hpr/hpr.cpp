@@ -1,45 +1,7 @@
 #include "hpr.h"
 #include "IPlug_include_in_plug_src.h"
 #include "Utils.h"
-
-enum Colors
-{
-	BG = 0x343838,
-	FG1 = 0x005F6B,
-	FG2 = 0x008C9E,
-	FG3 = 0x00B4CC,
-	FG4 = 0x00DFFC
-};
-
-IColor getColor(Colors c) { return IColor::FromColorCode(c); }
-
-IVStyle knobStyle()
-{
-	// Background
-	// OFF/Foreground
-	// ON/Pressed
-	// Frame
-	// Highlight
-	// Shadow
-	// Extra 1
-	// Extra 2
-	// Extra 3
-	IVStyle res = DEFAULT_STYLE
-		.WithColor(kBG, getColor(Colors::FG4))
-		.WithColor(kFG, getColor(Colors::FG3))
-		.WithColor(kPR, getColor(Colors::FG3))
-		.WithColor(kHL, COLOR_RED)
-		.WithColor(kSH, getColor(Colors::FG1))
-		.WithColor(kFR, getColor(Colors::FG3))
-		.WithColor(kX1, COLOR_WHITE)
-		.WithColor(kX2, COLOR_GREEN)
-		.WithColor(kX3, COLOR_BLUE)
-		;
-	res.labelText = IText(20, getColor(Colors::FG2));
-	res.valueText = IText(16, getColor(Colors::FG1));
-
-	return res;
-}
+#include "styles.h"
 
 #if IPLUG_DSP
 hpr::hpr(const InstanceInfo& info)
@@ -68,10 +30,10 @@ hpr::hpr(const InstanceInfo& info)
 
 	mLayoutFunc = [&](IGraphics* pGraphics) {
 		//pGraphics->AttachCornerResizer(EUIResizerMode::Scale, false);
-		pGraphics->AttachPanelBackground(IColor::FromColorCode(Colors::FG4));
+		pGraphics->AttachPanelBackground(IColor::FromColorCode(Colors::BG));
 		pGraphics->LoadFont("Roboto-Regular", ROBOTO_FN);
 
-		const IRECT left = pGraphics->GetBounds().GetFromLeft(350);
+		const IRECT left = pGraphics->GetBounds().GetFromLeft(350).GetCentredInside(pGraphics->GetBounds());
 		const int nRows = 1;
 		const int nCols = 4;
 
@@ -80,14 +42,15 @@ hpr::hpr(const InstanceInfo& info)
 		auto nextCell = [&]() {
 			return left.GetGridCell(++cellIdx, nRows, nCols).GetPadded(-5.);
 		};
-		pGraphics->AttachControl(new IVKnobControl(nextCell(), kH, "", knobStyle()));
-		pGraphics->AttachControl(new IVKnobControl(nextCell(), kP, "", knobStyle()));
-		pGraphics->AttachControl(new IVKnobControl(nextCell(), kR, "", knobStyle()));
+		pGraphics->AttachControl(new IVKnobControl(nextCell(), kH, "", knob1Style()));
+		pGraphics->AttachControl(new IVKnobControl(nextCell(), kP, "", knob2Style()));
+		pGraphics->AttachControl(new IVKnobControl(nextCell(), kR, "", knob3Style()));
 	};
 	//runTests();
 #endif
 }
 
+#define TEST_FFT 1
 void hpr::ProcessBlock(sample** inputs, sample** outputs, int nFrames)
 {
 	//const double gain = GetParam(kGain)->Value() / 100.;
@@ -137,6 +100,9 @@ void hpr::ProcessBlock(sample** inputs, sample** outputs, int nFrames)
 	// Frequency-domain
 	fftBuffer(sampleBuffer, windowL);
 
+#if TEST_FFT
+	ifftBuffer(sampleBuffer, windowL);
+#else
 	// Harmonics
 	harmonicsMatrix.nextMedians(harmonics.data(), workerBuffer.data(), sampleBuffer.data(), windowL);
 
@@ -145,8 +111,9 @@ void hpr::ProcessBlock(sample** inputs, sample** outputs, int nFrames)
 	medianPercussive(percussive.data(), workerBuffer.data(), sampleBuffer.data(), windowL);
 
 	// Combine with parameters and calc residual
-	// addWithParams(sampleBuffer.data(), harmonics.data(), percussive.data(), HGain, PGain, RGain, windowL);
 	calculateHPR(windowL);
+#endif
+
 
 	// write beginning of this window to the end of the buffer to be output now
 	for (size_t i = 0; i < hopSize; ++i)
@@ -172,10 +139,11 @@ void hpr::ProcessBlock(sample** inputs, sample** outputs, int nFrames)
 		hann(sampleBuffer.data(), windowL);
 
 		// Frequency-domain
-		fromReal(complexBuffer, sampleBuffer.data(), windowL);
-		fft(complexBuffer);
-		toReal(sampleBuffer.data(), complexBuffer, windowL);
+		fftBuffer(sampleBuffer, windowL);
 
+#if TEST_FFT
+		ifftBuffer(sampleBuffer, windowL);
+#else
 		// Harmonics
 		harmonicsMatrix.nextMedians(harmonics.data(), workerBuffer.data(), sampleBuffer.data(), windowL);
 	
@@ -184,8 +152,8 @@ void hpr::ProcessBlock(sample** inputs, sample** outputs, int nFrames)
 		medianPercussive(percussive.data(), workerBuffer.data(), sampleBuffer.data(), windowL);
 
 		// Combine with parameters
-		//addWithParams(sampleBuffer.data(), harmonics.data(), percussive.data(), HGain, PGain, RGain, windowL);
 		calculateHPR(windowL);
+#endif
 
 		for (auto i = 0; i < windowL; ++i)
 			nextOutput[i + wi] += sampleBuffer[i];

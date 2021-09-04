@@ -136,7 +136,6 @@ void testMedian()
 void runTests()
 {
 	testMedian();
-
 }
 
 void medianPercussive(sample* const dst, sample* const worker, sample const* const src, int n)

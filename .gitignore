@@ -25,3 +25,5 @@ hpr/ipch/*
 hpr/gui/*
 hpr/Icon?
 hpr/.DS_Stor*
+**/*.wav
+**/*.reapeaks

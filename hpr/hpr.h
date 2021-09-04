@@ -85,6 +85,9 @@ static constexpr unsigned int HARMONICS_MATRIX_SIZE = HARMONICS_MEDIAN_LEN * FFT
 
 sample median(sample * const srcDst, const int n);
 
+/**
+Handles buffering for the horisontal median filter
+*/
 struct HarmonicsMatrix
 {
 	static constexpr int L = HARMONICS_MEDIAN_LEN;
@@ -155,7 +158,9 @@ public:
 
 	/**
 	Calculate masks for H, P, R and apply to samples.
-	Note: Also transforms from frequency to time-domain
+	Note: Also transforms from frequency to time-domain, because the proposal shows
+	combining the signals in the time-domain (multiplication of parameter multipliers in
+	frequency-domain would equate to convolution in time-domain).
 
 	Implicit buffers are
 		 harmonics	= median filtered harmonics
@@ -218,30 +223,27 @@ public:
 			assert(xh > 0); assert(xp > 0); assert(xr > 0);
 			assert(xh < 1.0); assert(xp < 1.0); assert(xr < 1.0);
 
-//			harmonics[i] = xh;
-//			percussive[i] = xp;
-//			residual[i] = xr;
-			harmonicsTmp[i] = xh + xp + xr;
+			harmonics[i] = xh;
+			percussive[i] = xp;
+			residual[i] = xr;
 		}
 			// Time-domain
-		ifftBuffer(harmonicsTmp, windowL);
-		std::copy_n(harmonicsTmp.begin(), windowL, sampleBuffer.begin());
-//		ifftBuffer(harmonics, windowL);
-//		ifftBuffer(percussive, windowL);
-//		ifftBuffer(residual, windowL);
+		ifftBuffer(harmonics, windowL);
+		ifftBuffer(percussive, windowL);
+		ifftBuffer(residual, windowL);
 
-//		std::for_each_n(harmonics.begin(), windowL, [mult=H](sample x) { return x * mult; });
-//		std::for_each_n(percussive.begin(), windowL, [mult=P](sample x) { return x * mult; });
-//		std::for_each_n(residual.begin(), windowL, [mult=R](sample x) { return x * mult; });
-//	
-//		assert(*std::max_element(harmonics.begin(), harmonics.begin() + windowL) < 1.0);
-//		assert(*std::max_element(percussive.begin(), percussive.begin() + windowL) < 1.0);
-//		assert(*std::max_element(residual.begin(), residual.begin() + windowL) < 1.0);
-//
-//		for (int i = 0; i < windowL; ++i)
-//			sampleBuffer[i] = harmonics[i] + percussive[i] + residual[i];
-//
-//		assert(*std::max_element(sampleBuffer.begin(), sampleBuffer.begin() + windowL) < 1.0);;
+		std::for_each_n(harmonics.begin(), windowL, [mult=H](sample x) { return x * mult; });
+		std::for_each_n(percussive.begin(), windowL, [mult=P](sample x) { return x * mult; });
+		std::for_each_n(residual.begin(), windowL, [mult=R](sample x) { return x * mult; });
+	
+		assert(*std::max_element(harmonics.begin(), harmonics.begin() + windowL) < 1.0);
+		assert(*std::max_element(percussive.begin(), percussive.begin() + windowL) < 1.0);
+		assert(*std::max_element(residual.begin(), residual.begin() + windowL) < 1.0);
+
+		for (int i = 0; i < windowL; ++i)
+			sampleBuffer[i] = harmonics[i] + percussive[i] + residual[i];
+
+		assert(*std::max_element(sampleBuffer.begin(), sampleBuffer.begin() + windowL) < 1.0);;
 	}
 	void fftBuffer(std::vector<sample>& buffer, int windowL) noexcept
 	{

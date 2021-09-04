@@ -361,6 +361,7 @@
     <ClInclude Include="..\..\..\iPlug2\IGraphics\Extras\IGraphicsImGui.h" />
     <ClInclude Include="..\..\..\iPlug2\Dependencies\IGraphics\imgui\imgui.h" />
     <ClInclude Include="..\Utils.h" />
+    <ClInclude Include="..\styles.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="resources">
