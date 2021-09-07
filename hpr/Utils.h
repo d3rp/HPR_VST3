@@ -133,6 +133,7 @@ void testMedian()
 
 
 
+
 void runTests()
 {
 	testMedian();
@@ -143,15 +144,18 @@ void medianPercussive(sample* const dst, sample* const worker, sample const* con
 	const int L = PERCUSSIVE_MEDIAN_LEN;
 	const int halfP = L / 2;
 	const int N = FFT_SIZE - halfP - 1;
-	for (auto i = 0; i < halfP; ++i)
-		dst[i] = src[i];
 
+	/** Skip first L_p/2 samples */
+	for (auto i = 0; i < halfP; ++i)
+		dst[i] = 0.0; // src[i];
+
+	/** Skip last < L_p/2 samples */
 	for (auto i = N - halfP; i < N; ++i)
-		dst[i] = src[i];
+		dst[i] = 0.0; // src[i];
 
 	for (auto i = halfP; i < (N - halfP); ++i)
 	{
-		const auto* s = &src[i - halfP];
+		const auto* s = src + (i - halfP);
 		dst[i] = median(worker, s, L);
 	}
 }

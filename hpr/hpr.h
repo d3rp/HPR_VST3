@@ -18,55 +18,6 @@ typedef std::valarray<Complex> CArray;
 void fft(CArray& x);
 void ifft(CArray& x);
 
-struct CircularBuffer
-{
-
-	CircularBuffer(const int n)
-		: data(0.0, n)
-		, size(n)
-		, index(0)
-	{
-	}
-
-	void push(sample const * const newData, const int n) noexcept
-	{
-		int i = 0;
-		while (i < n)
-		{
-			while (index < size && i < n)
-				data[index++] = newData[i++];
-
-			if (index == size)
-				index = 0;
-		}
-	}
-
-	sample get(int i) const
-	{
-		// CircularBuffer[index] -> index is out of bounds even after offset!
-		assert(i < (2 * size));
-
-		const int offsetIndex = (index + i) < size ? index + i : i - size;
-		return data[offsetIndex];
-	}
-
-	//sample& operator[](int i) { return get(i); }
-	const sample& operator[](int i) const { return get(i); }
-
-	void getShifted(sample* const dst, int n) const noexcept
-	{
-		// Oh no, should've kept books about buffer sizes..
-		assert(n <= size);
-
-		for (auto i = 0; i < size; ++i)
-			dst[i] = get(i);
-	}
-
-	const unsigned int size;
-	std::valarray<sample> data;
-	int index;
-};
-
 const int kNumPresets = 1;
 enum EParams
 {
@@ -78,7 +29,7 @@ enum EParams
 };
 
 #define HARMONICS_MEDIAN_LEN 16
-#define PERCUSSIVE_MEDIAN_LEN 16
+#define PERCUSSIVE_MEDIAN_LEN 21
 static constexpr unsigned int FFT_SIZE = PLUG_LATENCY;
 static constexpr unsigned int HARMONICS_MATRIX_SIZE = HARMONICS_MEDIAN_LEN * FFT_SIZE;
 
@@ -107,10 +58,11 @@ struct HarmonicsMatrix
 	{
 		// update values
 		for (auto i = 0; i < n; ++i)
-			data[(L * i) + idx] = std::max(src[i], 1.0);
+			data[(L * i) + idx] = src[i];
 
 		advanceIndices();
 
+		/** Skip first L_h/2 windows */
 		if (!enoughHistory)
 		{
 			std::copy_n(src, n, dst);
@@ -129,6 +81,7 @@ struct HarmonicsMatrix
 		}
 	}
 
+	/** Type of a circular buffer. Advances index to next window. */
 	void advanceIndices()
 	{
 		if (++idx < HARMONICS_MEDIAN_LEN)
@@ -175,75 +128,41 @@ public:
 		const sample e = std::numeric_limits<sample>::min();
 
 		auto& harmonicsTmp = workerBuffer;
-		std::copy_n(harmonics.begin(), windowL, harmonicsTmp.begin());
-
 		auto& percussiveTmp = workerBuffer2;
-		std::copy_n(percussive.begin(), windowL, percussiveTmp.begin());
-
-		auto percIt = percussive.begin();
-		std::for_each_n(harmonicsTmp.begin(), windowL, [&](sample h) {
-			const auto p = *(percIt++);
-			if (h / (p + e) > 1.0)
-				return h;
-			else
-				return 0.0;
-			});
-
-		auto harmIt = harmonics.begin();
-		std::for_each_n(percussiveTmp.begin(), windowL, [&](sample p) {
-			const auto h = *(harmIt++);
-			if (p / (h + e) >= 1.0)
-				return p;
-			else
-				return 0.0;
-			});
-
-		const auto maxH = std::max(1.0, *std::max_element(harmonicsTmp.begin(), harmonicsTmp.begin() + windowL));
-		const auto maxP = std::max(1.0, *std::max_element(percussiveTmp.begin(), percussiveTmp.begin() + windowL));
-		const auto maxS = *std::max_element(sampleBuffer.begin(), sampleBuffer.begin() + windowL);
-		std::for_each_n(sampleBuffer.begin(), windowL, [&](sample s) { s / (maxS + e); });
 
 		for (int i = 0; i < windowL; ++i)
 		{
-			const auto h = harmonicsTmp[i] / maxH;
-			const auto p = percussiveTmp[i] / maxP;
+			const auto h = harmonics[i];
+			const auto p = percussive[i];
+			if (h / (p + e) > 1.0)
+				harmonicsTmp[i] = 1.0;
 
-			if (h + p == 0)
-				continue;
+			if (p / (h + e) >= 1.0)
+				percussiveTmp[i] = 1.0;
+		}
 
-			const auto r = std::max(0.0, 1.0 - (h + p));
+		for (int i = 0; i < windowL; ++i)
+		{
+			const auto h = harmonicsTmp[i];
+			const auto p = percussiveTmp[i];
 
-			assert(h > 0); assert(p > 0); assert(r > 0);
 			const auto s = sampleBuffer[i];
 			
 			const auto xh = s * h;
 			const auto xp = s * p;
-			const auto xr = s * r;
-
-			assert(xh > 0); assert(xp > 0); assert(xr > 0);
-			assert(xh < 1.0); assert(xp < 1.0); assert(xr < 1.0);
 
 			harmonics[i] = xh;
 			percussive[i] = xp;
-			residual[i] = xr;
+			residual[i] = (1 - (h + p)) * s;
 		}
-			// Time-domain
+		// Time-domain
 		ifftBuffer(harmonics, windowL);
 		ifftBuffer(percussive, windowL);
 		ifftBuffer(residual, windowL);
 
-		std::for_each_n(harmonics.begin(), windowL, [mult=H](sample x) { return x * mult; });
-		std::for_each_n(percussive.begin(), windowL, [mult=P](sample x) { return x * mult; });
-		std::for_each_n(residual.begin(), windowL, [mult=R](sample x) { return x * mult; });
-	
-		assert(*std::max_element(harmonics.begin(), harmonics.begin() + windowL) < 1.0);
-		assert(*std::max_element(percussive.begin(), percussive.begin() + windowL) < 1.0);
-		assert(*std::max_element(residual.begin(), residual.begin() + windowL) < 1.0);
-
 		for (int i = 0; i < windowL; ++i)
-			sampleBuffer[i] = harmonics[i] + percussive[i] + residual[i];
+			sampleBuffer[i] = (harmonics[i] * H) + (percussive[i] * P) + (residual[i] * R);
 
-		assert(*std::max_element(sampleBuffer.begin(), sampleBuffer.begin() + windowL) < 1.0);;
 	}
 	void fftBuffer(std::vector<sample>& buffer, int windowL) noexcept
 	{

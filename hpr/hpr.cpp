@@ -46,11 +46,13 @@ hpr::hpr(const InstanceInfo& info)
 		pGraphics->AttachControl(new IVKnobControl(nextCell(), kP, "", knob2Style()));
 		pGraphics->AttachControl(new IVKnobControl(nextCell(), kR, "", knob3Style()));
 	};
-	//runTests();
+#if DEBUG
+	runTests();
+#endif
 #endif
 }
 
-#define TEST_FFT 1
+#define TEST_FFT 0
 void hpr::ProcessBlock(sample** inputs, sample** outputs, int nFrames)
 {
 	//const double gain = GetParam(kGain)->Value() / 100.;
